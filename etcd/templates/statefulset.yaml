@@ -9,10 +9,14 @@ metadata:
     heritage: {{ .Release.Service | quote }}
 spec:
   serviceName: {{ template "etcd.fullname" . }}-headless
-  podManagementPolicy: {{ .Values.podManagementPolicy }}
-  replicas: {{ .Values.replicaCount }}
+  podManagementPolicy: {{ .Values.statefulset.podManagementPolicy }}
+  replicas: {{ .Values.statefulset.replicaCount }}
   updateStrategy:
-    type: {{ .Values.updateStratey }}
+    type: {{ .Values.statefulset.updateStratey }}
+    {{- if .Values.statefulset.rollingUpdatePartition }}
+    rollingUpdate:
+      partition: {{ .Values.statefulset.rollingUpdatePartition }}
+    {{- end }}
   selector:
     matchLabels:
       app: {{ template "etcd.name" . }}
@@ -49,7 +53,7 @@ spec:
       {{- end }}
       containers:
       # Variables to populate static cluster
-      {{- $replicaCount := int .Values.replicaCount }}
+      {{- $replicaCount := int .Values.statefulset.replicaCount }}
       {{- $clientPort := int .Values.service.port }}
       {{- $peerPort := int .Values.service.peerPort }}
       {{- $etcdFullname := include "etcd.fullname" . }}
@@ -68,19 +72,7 @@ spec:
             echo "==> The ID of the host is $ID"
             DATA_DIR={{ template "etcd.dataDir" . }}
 
-            AUTH_OPTIONS=""
-            if [ ! -z "$ETCD_ROOT_PASSWORD" ]; then
-              echo "==> Setting RBAC options for command line..."
-              AUTH_OPTIONS+="-u root:${ETCD_ROOT_PASSWORD}"
-            fi
-            if [ ! -z "$ETCD_CERT_FILE" ] && [ ! -z "$ETCD_KEY_FILE" ]; then
-              echo "==> Setting cert and key options for command line..."
-              AUTH_OPTIONS+=" --cert-file $ETCD_CERT_FILE --key-file $ETCD_KEY_FILE"
-            fi
-            if [ ! -z "$ETCD_TRUSTED_CA_FILE" ]; then
-              echo "==> Setting trusted ca file option for command line..."
-              AUTH_OPTIONS+=" --ca-file $ETCD_TRUSTED_CA_FILE"
-            fi
+            AUTH_OPTIONS="{{ template "etcd.authOptions" . }}"
 
             ## Store member id for later member replacement
             store_member_id() {
@@ -120,6 +112,7 @@ spec:
             ## Setting up new cluster
             else
               echo "==> There is no data at all. Creating new cluster"
+              export ETCDCTL_ENDPOINTS="{{ $etcdClientProtocol }}://{{ $etcdFullname }}-0.{{ $etcdHeadlessServiceName }}.default.svc.cluster.local:{{ $clientPort }}"
 
               store_member_id &
 
@@ -128,9 +121,9 @@ spec:
                 etcd > /dev/null 2>&1 &
                 ETCD_PID=$!
                 sleep 5
-                echo "$ETCD_ROOT_PASSWORD" | etcdctl user add root
-                etcdctl auth enable
-                etcdctl -u root:"$ETCD_ROOT_PASSWORD" role revoke guest -path '/*' --readwrite
+                echo "$ETCD_ROOT_PASSWORD" | ${AUTH_OPTIONS} etcdctl user add root
+                etcdctl ${AUTH_OPTIONS} auth enable
+                etcdctl ${AUTH_OPTIONS} role revoke guest -path '/*' --readwrite
                 kill $ETCD_PID
                 sleep 5
               fi
@@ -248,19 +241,7 @@ spec:
                 - "/bin/sh"
                 - "-ec"
                 - |
-                  AUTH_OPTIONS=""
-                  if [ ! -z "$ETCD_ROOT_PASSWORD" ]; then
-                    echo "==> Setting RBAC options for command line..."
-                    AUTH_OPTIONS+="-u root:${ETCD_ROOT_PASSWORD}"
-                  fi
-                  if [ ! -z "$ETCD_CERT_FILE" ] && [ ! -z "$ETCD_KEY_FILE" ]; then
-                    echo "==> Setting cert and key options for command line..."
-                    AUTH_OPTIONS+=" --cert-file $ETCD_CERT_FILE --key-file $ETCD_KEY_FILE"
-                  fi
-                  if [ ! -z "$ETCD_TRUSTED_CA_FILE" ]; then
-                    echo "==> Setting trusted ca file option for command line..."
-                    AUTH_OPTIONS+=" --ca-file $ETCD_TRUSTED_CA_FILE"
-                  fi
+                  AUTH_OPTIONS="{{ template "etcd.authOptions" . }}"
                   DATA_DIR={{ template "etcd.dataDir" . }}
                   MEMBER_ID=$(etcdctl member list | grep name=`hostname -s` | awk {'print $1'} | awk -F ":" {'print $1'})
                   export ETCDCTL_ENDPOINTS="{{ $etcdClientProtocol }}://{{ $etcdFullname }}-0.{{ $etcdHeadlessServiceName }}.default.svc.cluster.local:{{ $clientPort }}"
