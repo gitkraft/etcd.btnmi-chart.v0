@@ -31,6 +31,12 @@ image:
   ## ref:  https://github.com/bitnami/minideb-extras/#turn-on-bash-debugging
   debug: false
 
+  ## String to partially override etcd.fullname template (will maintain the release name)
+  # nameOverride:
+
+  ## String to fully override etcd.fullname template
+  # fullnameOverride:
+
 statefulset:
   ## Update strategy, can be set to RollingUpdate or OnDelete by default.
   ## https://kubernetes.io/docs/tutorials/stateful-application/basic-stateful-set/#updating-statefulsets
@@ -213,20 +219,52 @@ metrics:
     prometheus.io/scrape: "true"
     prometheus.io/port: "2379"
 
+## Start a new etcd cluster recovering the data from an existing snaptshot before
+## initializing the members
+##
+startFromSnapshot:
+  enabled: false
+  ## Existingn PVC containing the etcd snapshot
+  ##
+  # existingClaim
+  ## Snapshot filename
+  ##
+  # snapshotFilename
+
 ## Enable auto disaster recovery by periodically snapshotting the keyspace
-## - It creates a sidecar container to periodically snapshotting the keyspace
+## - It creates a cronjob to periodically snapshotting the keyspace
 ## - It also creates a ReadWriteMany PVC to store the snapshots
 ## If the cluster permanently loses more than (N-1)/2 members, it tries to recover
 ## the cluster from a previous snapshot.
 ##
 disasterRecovery:
   enabled: true
-  ## Interval (in seconds) to save snapshots
-  ##
-  interval: 300
-  ## PVC Storage Request
-  ##
-  size: 2Gi
-  ## storageClassName, choose a storageClassName with ReadWriteMany support
-  ##
-  storageClassName: nfs
+  cronjob:
+    ## Schedule in Cron format to save snapshots
+    ## See https://en.wikipedia.org/wiki/Cron
+    ##
+    schedule: "*/30 * * * *"
+    ## Number of successful finished jobs to retain
+    ##
+    historyLimit: 1
+    ## Pod annotations
+    ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+    ##
+    podAnnotations: {}
+    ## Configure resource requests and limits
+    ## ref: http://kubernetes.io/docs/user-guide/compute-resources/
+    ##
+    # resources:
+  pvc:
+    ## A manually managed Persistent Volume and Claim
+    ## If defined, PVC must be created manually before volume will be bound
+    ## The value is evaluated as a template, so, for example, the name can depend on .Release or .Chart
+    ##
+    # existingClaim:
+
+    ## PVC Storage Request
+    ##
+    size: 2Gi
+    ## storageClassName, choose a storageClassName with ReadWriteMany support
+    ##
+    storageClassName: nfs

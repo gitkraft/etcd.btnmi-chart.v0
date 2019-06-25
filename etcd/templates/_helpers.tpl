@@ -11,8 +11,16 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 */}}
 {{- define "etcd.fullname" -}}
+{{- if .Values.fullnameOverride -}}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
 {{- $name := default .Chart.Name .Values.nameOverride -}}
-{{- printf "%s-%s" .Release.Name $name | trunc 63 -}}
+{{- if contains $name .Release.Name -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}
 
 {{/*
@@ -75,6 +83,19 @@ Return the proper etcd data dir
 {{- print "/bitnami/etcd/data" -}}
 {{- else -}}
 {{- print "/opt/bitnami/etcd/data" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Return the proper Disaster Recovery PVC name
+*/}}
+{{- define "etcd.disasterRecovery.pvc.name" -}}
+{{- if .Values.disasterRecovery.pvc.existingClaim -}}
+{{- with .Values.disasterRecovery.pvc.existingClaim -}}
+{{ tpl . $ }}
+{{- end -}}
+{{- else -}}
+{{ template "etcd.fullname" . }}-snapshotter
 {{- end -}}
 {{- end -}}
 
@@ -144,6 +165,8 @@ Compile all warnings into a single message, and call fail.
 */}}
 {{- define "etcd.validateValues" -}}
 {{- $messages := list -}}
+{{- $messages := append $messages (include "etcd.validateValues.startFromSnapshot.existingClaim" .) -}}
+{{- $messages := append $messages (include "etcd.validateValues.startFromSnapshot.snapshotFilename" .) -}}
 {{- $messages := append $messages (include "etcd.validateValues.disasterRecovery" .) -}}
 {{- $messages := append $messages (include "etcd.validateValues.podAntiAffinity" .) -}}
 {{- $messages := without $messages "" -}}
@@ -151,6 +174,24 @@ Compile all warnings into a single message, and call fail.
 
 {{- if $message -}}
 {{-   printf "\nVALUES VALIDATION:\n%s" $message | fail -}}
+{{- end -}}
+{{- end -}}
+
+{{/* Validate values of etcd - an existing claim must be provided when startFromSnapshot is enabled */}}
+{{- define "etcd.validateValues.startFromSnapshot.existingClaim" -}}
+{{- if and .Values.startFromSnapshot.enabled (not .Values.startFromSnapshot.existingClaim) -}}
+etcd: startFromSnapshot.existingClaim
+    An existing claim must be provided when startFromSnapshot is enabled!!
+    Please provide it (--set startFromSnapshot.existingClaim="xxxx")
+{{- end -}}
+{{- end -}}
+
+{{/* Validate values of etcd - the snapshot filename must be provided when startFromSnapshot is enabled */}}
+{{- define "etcd.validateValues.startFromSnapshot.snapshotFilename" -}}
+{{- if and .Values.startFromSnapshot.enabled (not .Values.startFromSnapshot.snapshotFilename) -}}
+etcd: startFromSnapshot.snapshotFilename
+    The snapshot filename must be provided when startFromSnapshot is enabled!!
+    Please provide it (--set startFromSnapshot.snapshotFilename="xxxx")
 {{- end -}}
 {{- end -}}
 
