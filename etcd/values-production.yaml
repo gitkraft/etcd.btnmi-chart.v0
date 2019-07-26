@@ -27,7 +27,7 @@ image:
   #   - myRegistryKeySecretName
 
   ## Set to true if you would like to see extra information on logs
-  ## It turns BASH and NAMI debugging in minideb
+  ## It turns BASH and NAMI debugging in minideb and in etcd pod scripts
   ## ref:  https://github.com/bitnami/minideb-extras/#turn-on-bash-debugging
   debug: false
 
@@ -77,7 +77,7 @@ statefulset:
   ## Pod management policy
   ## https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#pod-management-policies
   ##
-  podManagementPolicy: OrderedReady
+  podManagementPolicy: Parallel
   ## Number od replicas
   ##
   replicaCount: 3
