@@ -98,6 +98,8 @@ The following tables lists the configurable parameters of the etcd chart and the
 | `auth.peer.caFilename`              | Name of the file containing the peer CA certificate                                       | `""`                                                    |
 | `initialClusterState`               | Initial cluster state. Allowed values: 'new' or 'existing'                                | `nil`                                                   |
 | `maxProcs`                          | Set GOMAXPROCS environment variable to limit the number of CPUs                           | `nil`                                                   |
+| `autoCompactionMode`                | Set ETCD_AUTO_COMPACTION_MODE environment variable to define mode of autoCompaction       | `nil`                                                   |
+| `autoCompactionRetention`           | Set ETCD_AUTO_COMPACTION_RETENTION environment variable to define autoCompaction retention| `nil`                                                   |
 | `removeMemberOnContainerTermination`| Use a PreStop hook to remove the etcd members from the cluster on container termination   | `true`                                                  |
 | `configuration`                     | etcd configuration. Specify content for etcd.conf.yml                                     | `nil`                                                   |
 | `existingConfigmap`                 | Name of existing ConfigMap with etcd configuration                                        | `nil`                                                   |
@@ -255,7 +257,7 @@ Bitnami will release a new chart updating its containers if a new version of the
 
 The Bitnami etcd chart can be used to bootstrap an etcd cluster, easy to scale and with available features to implement disaster recovery.
 
-Refer to the [chart documentation](https://docs.bitnami.com/kubernetes/infrastructure/etcd/configuration/understand-cluster/) for more information about all these details.
+Refer to the [chart documentation](https://docs.bitnami.com/kubernetes/infrastructure/etcd/get-started/understand-default-configuration/) for more information about all these details.
 
 ### Enable security for etcd
 
@@ -263,13 +265,25 @@ The etcd chart can be configured with Role-based access control and TLS encrypti
 
 [Learn more about security in the chart documentation](https://docs.bitnami.com/kubernetes/infrastructure/etcd/administration/enable-security/).
 
-## Persistence
+### Persistence
 
 The [Bitnami etcd](https://github.com/bitnami/bitnami-docker-etcd) image stores the etcd data at the `/bitnami/etcd` path of the container. Persistent Volume Claims are used to keep the data across statefulsets.
 
 The chart mounts a [Persistent Volume](https://kubernetes.io/docs/user-guide/persistent-volumes/) volume at this location. The volume is created using dynamic volume provisioning by default. An existing PersistentVolumeClaim can also be defined for this purpose.
 
-[Learn more about persistence in the chart documentation](https://docs.bitnami.com/kubernetes/infrastructure/etcd/configuration/chart-persistence/).
+[Learn more about persistence in the chart documentation](https://docs.bitnami.com/kubernetes/infrastructure/etcd/configuration/understand-chart-persistence/).
+
+### Backup and restore the etcd keyspace
+
+The Bitnami etcd chart provides mechanisms to bootstrap the etcd cluster restoring an existing snapshot before initializing. 
+
+[Learn more about backup/restore features in the chart documentation](https://docs.bitnami.com/kubernetes/infrastructure/etcd/administration/backup-restore/).
+
+### Exposing etcd metrics
+
+The metrics exposed by etcd can be exposed to be scraped by Prometheus. This can be done by adding the required annotations for Prometheus to discover the metrics endpoints or creating a PodMonitor entry if you are using the Prometheus Operator.
+
+[Learn more about exposing metrics in the chart documentation](https://docs.bitnami.com/kubernetes/infrastructure/etcd/administration/enable-metrics/).
 
 ### Using custom configuration
 
@@ -286,6 +300,22 @@ extraEnvVars:
 ```
 
 - Using a custom `etcd.conf.yml`: The etcd chart allows mounting a custom `etcd.conf.yml` file as ConfigMap. In order to so, you can use the `configuration` property. Alternatively, you can use an existing ConfigMap using the `existingConfigmap` parameter.
+
+### Auto Compaction
+
+Since etcd keeps an exact history of its keyspace, this history should be periodically compacted to avoid performance degradation and eventual storage space exhaustion. Compacting the keyspace history drops all information about keys superseded prior to a given keyspace revision. The space used by these keys then becomes available for additional writes to the keyspace.
+
+`autoCompactionMode`, by default periodic. Valid values: ‘periodic’, ‘revision’. 
+- 'periodic' for duration based retention, defaulting to hours if no time unit is provided (e.g. ‘5m’). 
+- 'revision' for revision number based retention.
+`autoCompactionRetention` for mvcc key value store in hour, by default 0, means disabled.
+
+You can enable auto compaction by using following parameters:
+
+```console
+autoCompactionMode=periodic
+autoCompactionRetention=10m
+```
 
 ### Sidecars and Init Containers
 
