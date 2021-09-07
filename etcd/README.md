@@ -176,7 +176,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | Name                               | Description                                                                       | Value       |
 | ---------------------------------- | --------------------------------------------------------------------------------- | ----------- |
 | `service.type`                     | Kubernetes Service type                                                           | `ClusterIP` |
-| `service.enabled`                  | Enable/Disable second service who allow ressources to reach etcd cluster          | `true`      |
+| `service.enabled`                  | create second service if equal true                                               | `true`      |
 | `service.clusterIP`                | Kubernetes service Cluster IP                                                     | `""`        |
 | `service.port`                     | etcd client port                                                                  | `2379`      |
 | `service.clientPortNameOverride`   | etcd client port name override                                                    | `""`        |
@@ -240,6 +240,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | `metrics.podMonitor.additionalLabels` | Additional labels that can be used so PodMonitors will be discovered by Prometheus | `{}`         |
 | `metrics.podMonitor.scheme`           | Scheme to use for scraping                                                         | `http`       |
 | `metrics.podMonitor.tlsConfig`        | TLS configuration used for scrape endpoints used by Prometheus                     | `{}`         |
+| `metrics.podMonitor.relabelings`      | Prometheus relabeling rules                                                         | `[]`         |
 
 
 ### Snapshotting parameters
